@@ -11,7 +11,7 @@ ENTRY_POINTS = '''
         check_calls=igv_check_calls.cli.check_calls:check_files
 '''
 
-requirements = ['pyobjc', 'click']
+requirements = ['pyobjc', 'click', 'opencv-python']
 
 setup(
     name='igv_check_calls',
