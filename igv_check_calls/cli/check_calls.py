@@ -10,7 +10,8 @@ from igv_check_calls.check_calls import CheckImages
 
 @click.command()
 @click.argument('files',
-                nargs=-1, type=click.Path(exists=True))
+                nargs=-1, type=click.Path(exists=True),
+		required=True)
 @click.option('--output_path',
               help='Write result here',
               default=None,
@@ -18,6 +19,9 @@ from igv_check_calls.check_calls import CheckImages
 @click.option('--control_igv/--no_control_igv',
               help='Control IGV by clicking on image?',
               default=True)
+@click.option('--igv_name',
+              help='The name of your IGV Application window.',
+              default='IGV Snapshot')
 def check_files(**kwds):
     CheckImages(**kwds)
 

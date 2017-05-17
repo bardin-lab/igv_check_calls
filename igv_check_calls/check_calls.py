@@ -58,14 +58,15 @@ class CheckImages(object):
 
     def goto_igv(self, event):
         if event == cv2.EVENT_LBUTTONUP:
-            subprocess.call(['open', '-a', 'IGV_Snapshot'])
+            subprocess.call(['open', '-a', self.igv_name])
             self.igv.go(self.current_corrdinates)
 
     def _check(self, image, image_name):
         cv2.namedWindow(image_name, cv2.WINDOW_NORMAL)
         if self.igv:
             cv2.setMouseCallback(image_name, lambda event, x, y, flags, param: self.goto_igv(event))
-        chrom, start, end, _ = image_name.split('_', 3)
+
+        chrom, start, end, _, _ = image_name.rsplit('_', 4)
         self.current_corrdinates = "%s:%s-%s" % (chrom, int(start) - 300, int(end) + 300)
         while True:
             height, width = image.shape[:2]
@@ -82,27 +83,5 @@ class CheckImages(object):
         template = "%s\t%s\n"
         with open(self.output_path, 'w') as out:
             for filename in self.result:
-                image_name = "\t".join(os.path.basename(filename).split('_', 3))
+                image_name = "\t".join(os.path.basename(filename).rsplit('_', 4))
                 out.write(template % (image_name, self.result[filename]))
-
-
-
-@click.command()
-@click.argument('files',
-                nargs=-1, type=click.Path(exists=True))
-@click.option('--output_path',
-              help='Write result here',
-              default=None,
-              type=click.Path(exists=False))
-@click.option('control_igv/no_control_igv',
-              help='Control IGV by clicking on image?',
-              default=True)
-@click.option('--igv_name',
-              help='The name of your IGV Application window.',
-              default='IGV Snapshot')
-def check_files(**kwds):
-    CheckImages(**kwds)
-
-
-if __name__ == "__main__":
-    check_files()
