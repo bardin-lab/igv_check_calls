@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="{{ genome  }}" hasGeneTrack="true" hasSequenceTrack="true" locus="chrX:3147446-3148645" path="/Users/mvandenb/IGV_screenshots/R25/r25_r26.xml" version="8">
+    <Resources>
+        <Resource path="/Users/mvandenb/src/transposon_reference_data/gff/dm6_TE_Annotations.gff"/>
+        {% for name, link, height, tag in bams %}<Resource name="{{ name }}" path="{{ link }}"/>{% endfor %}
+        {% for name, link, height, tag in gffs %}<Resource name="{{ name }}" path="{{ link }}"/>{% endfor %}
+    </Resources>
+    {% for name, link, height, tag in bams %}<Panel height="{{ height  }}" name="Panel{{ name }}" width="2543">
+        <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="{{link }}_coverage" name="{{ name  }} Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="10.0" minimum="0.0" type="LINEAR"/>
+        </Track>
+        <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="EXPANDED" featureVisibilityWindow="-1" fontSize="10" id="{{ link }}" name="{{ name }}" sortable="true" visible="true">
+            <RenderOptions colorByTag="{{ tag }}" colorOption="TAG" flagUnmappedPairs="false" groupByOption="NONE" groupByTag="BR" linkByTag="READNAME" linkedReads="false" maxInsertSize="1000" minInsertSize="50" quickConsensusMode="false" shadeBasesOption="QUALITY" shadeCenters="true" showAllBases="false" sortByTag="" viewPairs="false"/>
+        </Track>
+    </Panel>{% endfor %}
+    <Panel height="186" name="FeaturePanel" width="2543">
+        <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="Reference sequence" name="Reference sequence" sortable="false" visible="true"/>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" colorScale="ContinuousColorScale;0.0;817.0;255,255,255;0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" height="35" id="dm6_genes" name="Gene" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="817.0" minimum="0.0" type="LINEAR"/>
+        </Track>
+        {% for name, link, height, tag in gffs %}<Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="{{ link }}" name="{{ name }}" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>{% endfor %}
+    </Panel>
+    <PanelLayout dividerFractions="0.004995836802664446,0.12905911740216486,0.2681099084096586,0.5512073272273106,0.8409658617818485"/>
+</Session>
