@@ -1,0 +1,103 @@
+<tool id="igv_make_screenshots" name="IGV_screenshots" version="0.1.0">
+    <requirements>
+        <requirement type="package" version="0.2.9">xvfbwrapper</requirement>
+    </requirements>
+    <command detect_errors="exit_code"><![CDATA[
+        #for $inputsection in $inputfiles
+            #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+            sed -i.bak -e "s|$path|\$PWD/$path|g" '$igv_session' &&
+            ln -fs '$inputsection.input' '$path' &&
+            #if $inputsection.input.is_of_type('bam')
+                ln -fs $inputsection.input.metadata.bam_index '$path'.bai &&
+            #end if
+        #end for
+        ln -fs $igv_session igv_session.xml &&
+        cat '$load_session' > load_session.txt &&
+        echo snapshotDirectory "\$PWD" >> load_session.txt &&
+        cat load_session.txt '$script_file' '$exit_session' > igv_script.txt &&
+        ## gives the cluster a bit of time to actually create the symlinks ... ughs
+        sleep 10s &&
+        python $__tool_directory__/xvfb_igv.py igv_script.txt '$igv_preferences' $width,$height &&
+        cp '$igv_session' '$igv_session_out' &&
+        zip screenshots.zip *.png &&
+        cp screenshots.zip '$screenshots_out'
+    ]]></command>
+    <configfiles>
+        <configfile name="igv_session"><![CDATA[#set $genome=$inputfiles[0].input.metadata.dbkey
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="${genome}" hasGeneTrack="true" hasSequenceTrack="true" version="8">
+    <Resources>
+        #for $inputsection in $inputfiles
+            #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+            #set $coverage_id="%s_coverage" % $path
+        <Resource path="$path"/>
+        #end for
+    </Resources>
+    #for $inputsection in $inputfiles
+        #if $inputsection.input.is_of_type('bam')
+            #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
+            #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+            <Panel height="$inputsection.section_height" name="Panel${label}" width="$width">
+            ## First track is the coverage
+            <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$coverage_id" name="$label Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
+                <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="10.0" minimum="0.0" type="LINEAR"/>
+            </Track>
+            ## Second track is the actual BAM alignment file
+            <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="EXPANDED" featureVisibilityWindow="-1" fontSize="10" id="$path" name="$label" sortable="true" visible="true">
+                <RenderOptions colorByTag="$inputsection.color_by_tag" colorOption="TAG" flagUnmappedPairs="false" groupByOption="NONE" groupByTag="BR" linkByTag="READNAME" linkedReads="false" maxInsertSize="1000" minInsertSize="50" quickConsensusMode="false" shadeBasesOption="QUALITY" shadeCenters="true" showAllBases="false" sortByTag="" viewPairs="false"/>
+            </Track>
+            </Panel>
+        #end if
+    #end for
+    <Panel height="186" name="FeaturePanel" width="$width">
+        <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="Reference sequence" name="Reference sequence" sortable="false" visible="true"/>
+        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" colorScale="ContinuousColorScale;0.0;817.0;255,255,255;0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" height="35" id="${genome}_genes" name="Gene" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count">
+            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="817.0" minimum="0.0" type="LINEAR"/>
+        </Track>
+        #for $inputsection in $inputfiles
+            #if not $inputsection.input.is_of_type('bam')
+                #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
+                #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+                <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$path" name="$label" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>
+             #end if
+        #end for
+    </Panel>
+    <PanelLayout dividerFractions="0.004995836802664446,0.12905911740216486,0.2681099084096586,0.5512073272273106,0.8409658617818485"/>
+</Session>
+        ]]></configfile>
+        <configfile name="load_session">
+load igv_session.xml
+        </configfile>
+        <configfile name="exit_session">
+exit
+        </configfile>
+        <configfile name="igv_preferences">
+SAM.SHOW_SOFT_CLIPPED=$show_softclippped
+        </configfile>
+    </configfiles>
+    <inputs>
+        <repeat name="inputfiles" min="1" title="Add tracks">
+            <param name="input" type="data" format="bam,gff,gff3,gtf,bed,vcf" label="Choose an input file">
+                    <validator type="unspecified_build" />
+            </param>
+            <param name="label" type="text" label="Enter a label for this file. If no label is entered the history name will be used"/>
+            <param name="section_height" type="integer" value="300" label="Height for this track"/>
+            <param name="color_by_tag" type="text" value="CD" label="Enter a BAM/SAM tag that should detrmine the color of a read">
+                <sanitizer invalid_char="">
+                    <valid initial="string.letters,string.digits"><add value="_" /> </valid>
+                </sanitizer>
+            </param>
+        </repeat>
+        <param name="show_softclippped" type="boolean" label="Show softclipped bases?" truevalue="true" falsevalue="false" checked="true"/>
+        <param name="script_file" type="data" format="txt" label="Select a IGV script with regions for which to take screenshots"/>
+        <param name="width" label="Select the screenshot width" type="integer" min="800" value="1920"/>
+        <param name="height" label="Select the screenshot height" type="integer" min="640" value="1080"/>
+    </inputs>
+    <outputs>
+        <data name="igv_session_out" format="xml"/>
+        <data name="screenshots_out" format="zip"/>
+    </outputs>
+    <help><![CDATA[
+        TODO: Fill in help.
+    ]]></help>
+</tool>

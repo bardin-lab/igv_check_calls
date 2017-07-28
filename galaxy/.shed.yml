@@ -1,0 +1,11 @@
+categories:
+- SAM
+- Variant Analysis
+description: Take screenshots using IGV.
+long_description: |
+  Take screenshots using IGV
+name: igv_take_screenshots
+owner: mvdbeek
+homepage_url: https://github.com/bardin-lab/readtagger
+remote_repository_url: https://github.com/bardin-lab/readtagger/tree/master/galaxy
+type: unrestricted
