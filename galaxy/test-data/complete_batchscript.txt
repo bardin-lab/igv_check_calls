@@ -1,2 +1,2 @@
-goto 2R:7050658-7051658
-snapshot 2R_rover_7050658_7051658_slop300.png
+goto 2R:1-1551
+snapshot 2R_rover_1_1551_slop300.png

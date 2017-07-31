@@ -8,7 +8,7 @@ import xvfbwrapper
 def take_screenshots(igv_script, preferences_file, screensize):
     width, height = screensize.split(',')
     with xvfbwrapper.Xvfb(width=width, height=height) as xvfb:
-        exit_code = subprocess.call(['igv', '-o', preferences_file, '--batch', igv_script], env=os.environ.copy())
+        exit_code = subprocess.call(['igv', '-g', 'genome.fa', '-o', preferences_file, '--batch', igv_script], env=os.environ.copy())
     sys.exit(exit_code)
 
 

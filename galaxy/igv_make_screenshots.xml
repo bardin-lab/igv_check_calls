@@ -1,11 +1,25 @@
 <tool id="igv_make_screenshots" name="IGV_screenshots" version="0.1.0">
+    <macros>
+        <token name="@PATH@"><![CDATA[#set $path="%s.%s.%s" % ($i, $inputsection.input.element_identifier, $inputsection.input.extension)]]></token>
+    </macros>
     <requirements>
         <requirement type="package" version="0.2.9">xvfbwrapper</requirement>
+        <!-- TODO: uncomment when igv in conda
+        <requirement type="package" version="2.3.93">igv</requirement>
+        -->
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
-        #for $inputsection in $inputfiles
-            #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
-            sed -i.bak -e "s|$path|\$PWD/$path|g" '$igv_session' &&
+        #import re
+        #if $genome_source.input_type_selector == 'history':
+            ln -s '$genome_source.genome' genome.fa &&
+        #else:
+            ln -s '$genome_source.genome.fields.path' genome.fa &&
+        #end if
+        samtools faidx genome.fa &&
+        sed -i.bak -e "s|\"genome.fa\"|\"\$PWD/genome.fa\"|g" '$igv_session' &&
+        #for $i, $inputsection in enumerate($inputfiles):
+            @PATH@
+            sed -i.bak -e "s|\"$path\"|\"\$PWD/$path\"|g" '$igv_session' &&
             ln -fs '$inputsection.input' '$path' &&
             #if $inputsection.input.is_of_type('bam')
                 ln -fs $inputsection.input.metadata.bam_index '$path'.bai &&
@@ -15,28 +29,26 @@
         cat '$load_session' > load_session.txt &&
         echo snapshotDirectory "\$PWD" >> load_session.txt &&
         cat load_session.txt '$script_file' '$exit_session' > igv_script.txt &&
-        ## gives the cluster a bit of time to actually create the symlinks ... ughs
-        sleep 10s &&
-        python $__tool_directory__/xvfb_igv.py igv_script.txt '$igv_preferences' $width,$height &&
         cp '$igv_session' '$igv_session_out' &&
+        python $__tool_directory__/xvfb_igv.py igv_script.txt '$igv_preferences' $width,$height &&
         zip screenshots.zip *.png &&
         cp screenshots.zip '$screenshots_out'
     ]]></command>
     <configfiles>
-        <configfile name="igv_session"><![CDATA[#set $genome=$inputfiles[0].input.metadata.dbkey
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<Session genome="${genome}" hasGeneTrack="true" hasSequenceTrack="true" version="8">
+        <configfile name="igv_session">#import re
+<![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="genome.fa" hasGeneTrack="false" hasSequenceTrack="true" version="8">
     <Resources>
-        #for $inputsection in $inputfiles
-            #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+        #for $i, $inputsection in enumerate($inputfiles):
+            @PATH@
             #set $coverage_id="%s_coverage" % $path
         <Resource path="$path"/>
         #end for
     </Resources>
-    #for $inputsection in $inputfiles
+    #for $i, $inputsection in enumerate($inputfiles):
         #if $inputsection.input.is_of_type('bam')
             #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
-            #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+            @PATH
             <Panel height="$inputsection.section_height" name="Panel${label}" width="$width">
             ## First track is the coverage
             <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$coverage_id" name="$label Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
@@ -51,13 +63,10 @@
     #end for
     <Panel height="186" name="FeaturePanel" width="$width">
         <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="Reference sequence" name="Reference sequence" sortable="false" visible="true"/>
-        <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" colorScale="ContinuousColorScale;0.0;817.0;255,255,255;0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" height="35" id="${genome}_genes" name="Gene" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count">
-            <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="817.0" minimum="0.0" type="LINEAR"/>
-        </Track>
-        #for $inputsection in $inputfiles
+        #for $i, $inputsection in enumerate($inputfiles):
             #if not $inputsection.input.is_of_type('bam')
                 #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
-                #set $path="%s.%s" % ($inputsection.input.element_identifier, $inputsection.input.extension)
+                @PATH@
                 <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$path" name="$label" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>
              #end if
         #end for
@@ -76,10 +85,22 @@ SAM.SHOW_SOFT_CLIPPED=$show_softclippped
         </configfile>
     </configfiles>
     <inputs>
-        <repeat name="inputfiles" min="1" title="Add tracks">
-            <param name="input" type="data" format="bam,gff,gff3,gtf,bed,vcf" label="Choose an input file">
-                    <validator type="unspecified_build" />
+        <conditional name="genome_source">
+            <param name="input_type_selector" type="select" label="Choose the genome source">
+                <option value="cached" selected="True">Built-in references</option>
+                <option value="history">Select a fasta file from your history</option>
             </param>
+            <when value="cached">
+                <param name="genome" type="select" label="Select a genome">
+                    <options from_data_table="all_fasta" />
+                </param>
+            </when>
+            <when value="history">
+                <param name="genome" type="data" format="fasta" label="Select a fasta file as reference genome"/>
+            </when>
+        </conditional>
+        <repeat name="inputfiles" min="1" title="Add tracks">
+            <param name="input" type="data" format="bam,gff,gff3,gtf,bed,vcf" label="Choose an input file"/>
             <param name="label" type="text" label="Enter a label for this file. If no label is entered the history name will be used"/>
             <param name="section_height" type="integer" value="300" label="Height for this track"/>
             <param name="color_by_tag" type="text" value="CD" label="Enter a BAM/SAM tag that should detrmine the color of a read">
@@ -97,7 +118,22 @@ SAM.SHOW_SOFT_CLIPPED=$show_softclippped
         <data name="igv_session_out" format="xml"/>
         <data name="screenshots_out" format="zip"/>
     </outputs>
+    <tests>
+        <test>
+            <param name="genome_source|input_type_selector" value="history"/>
+            <param name="genome_source|genome" value="rover_reference.fa"/>
+            <repeat name="inputfiles">
+                <param name="input" value="rover_corrected.bam"/>
+            </repeat>
+            <output name="igv_session_out" file="igv_session.xml" lines_diff="6"/>
+        </test>
+    </tests>
     <help><![CDATA[
-        TODO: Fill in help.
+        This tool can automate taking screenshots using IGV.
+        It takes as input a reference genome, an IGV script file (bedtools igv can produce such a file)
+        and a variable number of BAM,GFF,GTF,BED or VCF files, and produces a zip file containing screenshots for each genomic region in the IGV script file.
     ]]></help>
+    <citations>
+        <citation type="doi">10.1093/bib/bbs017</citation>
+    </citations>
 </tool>
