@@ -1,6 +1,18 @@
-<tool id="igv_make_screenshots" name="IGV_screenshots" version="0.1.0">
+<tool id="igv_make_screenshots" name="IGV_screenshots" version="0.1.2">
     <macros>
-        <token name="@PATH@"><![CDATA[#set $path="%s.%s.%s" % ($i, $inputsection.input.element_identifier, $inputsection.input.extension)]]></token>
+        <token name="@DISPLAY_LINK@"><![CDATA[
+#set $dataset_id = str($__app__.security.encode_id($inputsection.input.dataset.id))
+#set $user_id = str($__app__.security.encode_id($__user_id__))
+#set $galaxy_url = $__app__.config.galaxy_infrastructure_url
+#set $file_ext = $inputsection.input.extension
+#set $igv_ext = $file_ext if $file_ext != "gff3" else "gff"
+#set $element_identifier = $inputsection.input.element_identifier
+#set $display_link = "{galaxy_url}/display_application/{dataset_id}/igv_{igv_ext}/local_default/None/data/galaxy_{dataset_id}.{file_ext}".format(galaxy_url=galaxy_url, dataset_id=dataset_id, igv_ext=igv_ext, file_ext=file_ext, user_id=user_id)
+]]></token>
+        <token name="@PATH@"><![CDATA[
+#import re
+#set $path="%s.%s.%s" % ($i, re.sub('[^\w\-_]', '_', $inputsection.input.element_identifier), $inputsection.input.extension)
+]]></token>
     </macros>
     <requirements>
         <requirement type="package" version="0.2.9">xvfbwrapper</requirement>
@@ -9,34 +21,34 @@
         -->
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
-        #import re
-        #if $genome_source.input_type_selector == 'history':
-            ln -s '$genome_source.genome' genome.fa &&
-        #else:
-            ln -s '$genome_source.genome.fields.path' genome.fa &&
-        #end if
-        samtools faidx genome.fa &&
-        sed -i.bak -e "s|\"genome.fa\"|\"\$PWD/genome.fa\"|g" '$igv_session' &&
-        #for $i, $inputsection in enumerate($inputfiles):
-            @PATH@
-            sed -i.bak -e "s|\"$path\"|\"\$PWD/$path\"|g" '$igv_session' &&
-            ln -fs '$inputsection.input' '$path' &&
-            #if $inputsection.input.is_of_type('bam')
-                ln -fs $inputsection.input.metadata.bam_index '$path'.bai &&
-            #end if
-        #end for
-        ln -fs $igv_session igv_session.xml &&
-        cat '$load_session' > load_session.txt &&
-        echo snapshotDirectory "\$PWD" >> load_session.txt &&
-        cat load_session.txt '$script_file' '$exit_session' > igv_script.txt &&
-        cp '$igv_session' '$igv_session_out' &&
-        python $__tool_directory__/xvfb_igv.py igv_script.txt '$igv_preferences' $width,$height &&
-        zip screenshots.zip *.png &&
-        cp screenshots.zip '$screenshots_out'
+#if $genome_source.input_type_selector == 'history':
+    ln -s '$genome_source.genome' genome.fa &&
+#else:
+    ln -s '$genome_source.genome.fields.path' genome.fa &&
+#end if
+samtools faidx genome.fa &&
+sed -i.bak -e "s|\"genome.fa\"|\"\$PWD/genome.fa\"|g" '$igv_session' &&
+#for $i, $inputsection in enumerate($inputfiles):
+    @PATH@
+    ln -fs '$inputsection.input' '$path' &&
+    sed -i.bak -e "s|\"$path\"|\"\$PWD/$path\"|g" '$igv_session' &&
+    #if $inputsection.input.is_of_type('bam')
+        ln -fs $inputsection.input.metadata.bam_index '$path'.bai &&
+    #end if
+#end for
+ln -fs $igv_session igv_session.xml &&
+cat '$load_session' > load_session.txt &&
+echo snapshotDirectory "\$PWD" >> load_session.txt &&
+cat load_session.txt '$script_file' '$exit_session' > igv_script.txt &&
+cp '$igv_session_remote' '$igv_session_out'
+#if not $skip_screenshots:
+    && python $__tool_directory__/xvfb_igv.py igv_script.txt '$igv_preferences' $width,$height &&
+    zip screenshots.zip *.png &&
+    cp screenshots.zip '$screenshots_out'
+#end if
     ]]></command>
     <configfiles>
-        <configfile name="igv_session">#import re
-<![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+        <configfile name="igv_session"><![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <Session genome="genome.fa" hasGeneTrack="false" hasSequenceTrack="true" version="8">
     <Resources>
         #for $i, $inputsection in enumerate($inputfiles):
@@ -48,7 +60,7 @@
     #for $i, $inputsection in enumerate($inputfiles):
         #if $inputsection.input.is_of_type('bam')
             #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
-            @PATH
+            @PATH@
             <Panel height="$inputsection.section_height" name="Panel${label}" width="$width">
             ## First track is the coverage
             <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$coverage_id" name="$label Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
@@ -68,6 +80,40 @@
                 #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
                 @PATH@
                 <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$path" name="$label" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>
+             #end if
+        #end for
+    </Panel>
+    <PanelLayout dividerFractions="0.004995836802664446,0.12905911740216486,0.2681099084096586,0.5512073272273106,0.8409658617818485"/>
+</Session>
+        ]]></configfile>
+        <configfile name="igv_session_remote"><![CDATA[<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="dm6" hasGeneTrack="true" hasSequenceTrack="true" version="8">
+    <Resources>#for $i, $inputsection in enumerate($inputfiles):@DISPLAY_LINK@<Resource path="$display_link"/>#end for
+    </Resources>
+    #for $i, $inputsection in enumerate($inputfiles):
+        #if $inputsection.input.is_of_type('bam')
+            #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
+            @DISPLAY_LINK@
+            #set $coverage_id="%s_coverage" % $display_link
+            <Panel height="$inputsection.section_height" name="Panel${label}" width="$width">
+            ## First track is the coverage
+            <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$coverage_id" name="$label Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
+                <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="10.0" minimum="0.0" type="LINEAR"/>
+            </Track>
+            ## Second track is the actual BAM alignment file
+            <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="EXPANDED" featureVisibilityWindow="-1" fontSize="10" id="$display_link" name="$label" sortable="true" visible="true">
+                <RenderOptions colorByTag="$inputsection.color_by_tag" colorOption="TAG" flagUnmappedPairs="false" groupByOption="NONE" groupByTag="BR" linkByTag="READNAME" linkedReads="false" maxInsertSize="1000" minInsertSize="50" quickConsensusMode="false" shadeBasesOption="QUALITY" shadeCenters="true" showAllBases="false" sortByTag="" viewPairs="false"/>
+            </Track>
+            </Panel>
+        #end if
+    #end for
+    <Panel height="186" name="FeaturePanel" width="$width">
+        <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="Reference sequence" name="Reference sequence" sortable="false" visible="true"/>
+        #for $i, $inputsection in enumerate($inputfiles):
+            #if not $inputsection.input.is_of_type('bam')
+                #set $label=str($inputsection.label) if str($inputsection.label) else str($inputsection.input.element_identifier)
+                @DISPLAY_LINK@
+                <Track altColor="0,0,178" autoScale="false" clazz="org.broad.igv.track.FeatureTrack" color="0,0,178" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="$display_link" name="$label" renderer="BASIC_FEATURE" sortable="false" visible="true" windowFunction="count"/>
              #end if
         #end for
     </Panel>
@@ -109,6 +155,7 @@ SAM.SHOW_SOFT_CLIPPED=$show_softclippped
                 </sanitizer>
             </param>
         </repeat>
+        <param name="skip_screenshots" type="boolean" label="Skip taking screenshots? Only produces session files."/>
         <param name="show_softclippped" type="boolean" label="Show softclipped bases?" truevalue="true" falsevalue="false" checked="true"/>
         <param name="script_file" type="data" format="txt" label="Select a IGV script with regions for which to take screenshots"/>
         <param name="width" label="Select the screenshot width" type="integer" min="800" value="1920"/>
@@ -116,7 +163,9 @@ SAM.SHOW_SOFT_CLIPPED=$show_softclippped
     </inputs>
     <outputs>
         <data name="igv_session_out" format="xml"/>
-        <data name="screenshots_out" format="zip"/>
+        <data name="screenshots_out" format="zip">
+            <filter>skip_screenshots == False</filter>
+        </data>
     </outputs>
     <tests>
         <test>
