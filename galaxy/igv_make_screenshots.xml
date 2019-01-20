@@ -15,10 +15,19 @@
 ]]></token>
     </macros>
     <requirements>
+        <!-- Conda can't give us a fully functioning xvfb at this time,
+             need to use custom built container
         <requirement type="package" version="0.2.9">xvfbwrapper</requirement>
-        <!-- TODO: uncomment when igv in conda
-        <requirement type="package" version="2.3.93">igv</requirement>
+        <requirement type="package" version="2.4.9">igv</requirement>
+        <requirement type="package" version="1.6.6">xorg-libx11</requirement>
+        <requirement type="package" version="1.17.4">xorg-x11-server-xvfb-cos6-x86_64</requirement>
+        <requirement type="package" version="11.0.7">mesa-libgl-cos6-x86_64</requirement>
+        <requirement type="package" version="2.0.94">libselinux-cos6-x86_64</requirement>
+        <requirement type="package" version="1.0.2">openssl</requirement>
+        <requirement type="package" version="1.9">samtools</requirement>
+        <requirement type="package" version="8.30">coreutils</requirement>
         -->
+        <container type="docker">mvdbeek/igv_make_screenshots:0.1.2</container>
     </requirements>
     <command detect_errors="exit_code"><![CDATA[
 #if $genome_source.input_type_selector == 'history':
@@ -27,24 +36,23 @@
     ln -s '$genome_source.genome.fields.path' genome.fa &&
 #end if
 samtools faidx genome.fa &&
-sed -i.bak -e "s|\"genome.fa\"|\"\$PWD/genome.fa\"|g" '$igv_session' &&
+cp '$igv_session' igv_session.xml &&
+sed -i.bak -e "s|\"genome.fa\"|\"\$PWD/genome.fa\"|g" igv_session.xml &&
 #for $i, $inputsection in enumerate($inputfiles):
     @PATH@
     ln -fs '$inputsection.input' '$path' &&
-    sed -i.bak -e "s|\"$path\"|\"\$PWD/$path\"|g" '$igv_session' &&
+    sed -i.bak -e "s|\"$path\"|\"\$PWD/$path\"|g" igv_session.xml &&
     #if $inputsection.input.is_of_type('bam')
         ln -fs $inputsection.input.metadata.bam_index '$path'.bai &&
     #end if
 #end for
-ln -fs $igv_session igv_session.xml &&
 cat '$load_session' > load_session.txt &&
 echo snapshotDirectory "\$PWD" >> load_session.txt &&
 cat load_session.txt '$script_file' '$exit_session' > igv_script.txt &&
 cp '$igv_session_remote' '$igv_session_out'
 #if not $skip_screenshots:
     && python $__tool_directory__/xvfb_igv.py igv_script.txt '$igv_preferences' $width,$height &&
-    zip screenshots.zip *.png &&
-    cp screenshots.zip '$screenshots_out'
+    mkdir screenshots && mv *.png screenshots
 #end if
     ]]></command>
     <configfiles>
@@ -162,19 +170,22 @@ SAM.SHOW_SOFT_CLIPPED=$show_softclippped
         <param name="height" label="Select the screenshot height" type="integer" min="640" value="1080"/>
     </inputs>
     <outputs>
-        <data name="igv_session_out" format="xml"/>
-        <data name="screenshots_out" format="zip">
+        <data name="igv_session_out" format="xml" label="IGV session for ${on_string}"/>
+        <collection name="screenshots_out" type="list" label="IGV screenshots for ${on_string}">
             <filter>skip_screenshots == False</filter>
-        </data>
+            <discover_datasets pattern="__name_and_ext__" directory="screenshots" />
+        </collection>
     </outputs>
     <tests>
         <test>
             <param name="genome_source|input_type_selector" value="history"/>
             <param name="genome_source|genome" value="rover_reference.fa"/>
+            <param name="script_file" value="complete_batchscript.txt"/>
             <repeat name="inputfiles">
                 <param name="input" value="rover_corrected.bam"/>
             </repeat>
             <output name="igv_session_out" file="igv_session.xml" lines_diff="6"/>
+            <output_collection name="screenshots_out" type="list" count="1"/>
         </test>
     </tests>
     <help><![CDATA[

@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<Session genome="/Users/mvandenb/src/galaxy/database/jobs_directory/000/350/working/genome.fa" hasGeneTrack="false" hasSequenceTrack="true" version="8">
+<Session genome="dm6" hasGeneTrack="true" hasSequenceTrack="true" version="8">
     <Resources>
-        <Resource path="/Users/mvandenb/src/galaxy/database/jobs_directory/000/350/working/0.rover_corrected.bam.bam"/>
+<Resource path="http://localhost:8080/display_application/d836242eec778a25/igv_bam/local_default/None/data/galaxy_d836242eec778a25.bam"/>
     </Resources>
+            
+
             <Panel height="300" name="Panelrover_corrected.bam" width="1920">
-            <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="0.rover_corrected.bam.bam_coverage" name="rover_corrected.bam Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
+            <Track altColor="0,0,178" autoScale="true" color="175,175,175" colorScale="ContinuousColorScale;0.0;10.0;255,255,255;175,175,175" displayMode="COLLAPSED" featureVisibilityWindow="-1" fontSize="10" id="http://localhost:8080/display_application/d836242eec778a25/igv_bam/local_default/None/data/galaxy_d836242eec778a25.bam_coverage" name="rover_corrected.bam Coverage" showReference="false" snpThreshold="0.2" sortable="true" visible="true">
                 <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="10.0" minimum="0.0" type="LINEAR"/>
             </Track>
-            <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="EXPANDED" featureVisibilityWindow="-1" fontSize="10" id="/Users/mvandenb/src/galaxy/database/jobs_directory/000/350/working/0.rover_corrected.bam.bam" name="rover_corrected.bam" sortable="true" visible="true">
+            <Track altColor="0,0,178" autoScale="false" color="0,0,178" displayMode="EXPANDED" featureVisibilityWindow="-1" fontSize="10" id="http://localhost:8080/display_application/d836242eec778a25/igv_bam/local_default/None/data/galaxy_d836242eec778a25.bam" name="rover_corrected.bam" sortable="true" visible="true">
                 <RenderOptions colorByTag="CD" colorOption="TAG" flagUnmappedPairs="false" groupByOption="NONE" groupByTag="BR" linkByTag="READNAME" linkedReads="false" maxInsertSize="1000" minInsertSize="50" quickConsensusMode="false" shadeBasesOption="QUALITY" shadeCenters="true" showAllBases="false" sortByTag="" viewPairs="false"/>
             </Track>
             </Panel>
